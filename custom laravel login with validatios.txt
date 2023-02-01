@@ -1,0 +1,235 @@
+Custom login form and full validations
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\employee; 
+use Illuminate\Support\Facades\File;
+use Session;
+use Hash;
+class usercontroller extends Controller
+{
+
+    function registerbl()
+    {
+    return view('auth.register');
+    }
+function add(Request $req)
+{
+ $req->validate([
+ /* 'name'=>'required | min:3 |max:5, |alpha_dash |', */
+/* 'name'=>'required | alpha', */
+/* 'name'=>'required | numeric', */
+/* 'name'=>'required | regex:/ [a-zA-Z0-9]+/', */
+'uimage'=>'required | image | mimes: png ,jpeg,jpg | max:720',
+/* 'dt'=>'required | date| date_format: d-m-Y', */
+/* 'password'=>['required', 'regex: /(?=^.{8,}$)((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/'], */
+/* 'rpassword'=>'required | same: password', */
+'name'=>'required ',
+'email'=>'required',
+'gend'=>'required',
+'password'=>'required',
+    ],
+    [
+/*     'name.required'=>'name is must',
+    'name.min'=>'minimum 3 chracters only',
+    'name.max'=>'maximum 5 chracters only',
+    'uimage.image'=>'image extension should be jpg,jpeg,png',
+    'uimage.max'=>'image size should be minimum 20kb',
+    'name.alpha_dash'=>'space not allowed',
+    /* 'name.alpha'=>'name should be letters only' */
+    /* 'name.numeric'=>'only numbers alowed',
+    'name.regex'=>'num and letters',
+    'password.regex'=>'Password (UpperCase, LowerCase, Number/SpecialChar and min 8 Chars)',
+    'email'=>'email is must' */ 
+    ]);
+if($req->password==$req->rpassword)
+{
+
+$obj=new employee();
+$obj->name=$req->name;
+$obj->email=$req->email;
+$obj->password=Hash::make($req->password);
+$obj->gender=$req->gend;
+
+
+if($req->hasfile('uimage')){
+
+$file=$req->file('uimage');
+$extension=$file->getClientOriginalExtension();
+$filename=time().''.$extension;
+$file->move('uploads/images/',$filename);
+$obj->user_image=$filename; 
+}
+$obj->save();
+return redirect('register');
+}
+
+else{
+    echo "email or password is not valid";
+    }
+}
+
+
+function showdata()
+{
+$fetchdata=employee::all();
+return view('/udashboard',['member'=>$fetchdata]);
+}
+
+function delete($id)
+{
+$del=employee::find($id);
+    $del->delete();
+return redirect('/udashboard');
+}
+
+function editt($id){
+    $editt = employee::find($id);
+    return view('/update',['editt'=>$editt]);
+
+}
+
+
+function update(Request $req ,$id){
+    $obj= employee::find($id);
+    $obj->name=$req->name;
+    $obj->email=$req->email;
+    $obj->password=$req->password;
+    $obj->gender=$req->gend;
+    
+    if($req->hasfile('uimage')){
+
+
+    $destination='uploads/images/'.$obj->user_image;
+    if(File::exists($destination))
+    {
+    File::delete($destination);
+    }
+    $file=$req->file('uimage');
+    $extension=$file->getClientOriginalExtension();
+    $filename=time().' '.$extension;
+    $file->move('uploads/images/',$filename);
+    $obj->user_image=$filename; 
+    }
+    $obj->update();
+/* return redirect()->back()->with('status','data updated successfully'); */
+return redirect('udashboard')->with('message','success!');
+}
+/* update function end */
+
+function loginbl()
+    {
+    return view('auth.login');
+    }
+/* loginbl function blank */
+
+function loginuser(Request $req){   
+$req->validate([
+    'email'=>'required |email',
+'password'=>'required'
+]);
+$obj=employee::where('email',
+$req->email)->first();
+if($obj){
+    if(Hash::check($req->password,$obj->password)){
+$req->session()->put('loginid',$obj->id);
+return redirect('home')->with('status','logged in successfully');;
+}
+else{
+    return  back()->with('fail','password is not matches');
+}
+}
+else{
+return  back()->with('fail','the user in not registered');
+}
+}
+/* login function end */
+function home()
+{
+$data=array();
+if(Session::has('loginid')){
+$data=employee::where('id','=',Session::get('loginid'))->first();
+}
+return view('home',compact('data'));
+}
+
+function logout(){
+if(Session('loginid')){
+session::flush('loginid');
+return redirect('login');
+}
+}
+
+
+}
+
+start===========================================================================end
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+<table class="table">
+<thead>
+<th>name</th>
+<th>email</th>
+<th>logout</th>
+</thead>
+<tbody>
+<tr>
+@if(session('status'))
+<div class="basic-form">
+<div class="alert alert-danger w-25">
+
+{{session('status')}}
+</div>
+</div>
+@endif
+
+<td>{{$data->email}}</td>
+<td>{{$data->name}}</td>
+<td><a href="logout">logout</a></td>
+</tr>
+</tbody>
+</table>
+
+=======routes start======================
+
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\usercontroller;
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::get('/login',[usercontroller::class,'loginbl'])->middleware('dashboard');
+Route::get('/register',[usercontroller::class,'registerbl']);
+
+Route::post('/register-user',[usercontroller::class,'add']);
+Route::post('/login-user',[usercontroller::class,'loginuser'])->name('login-user');
+
+
+Route::get('/udashboard',[usercontroller::class,'showdata']);
+Route::get('/del/{id}',[usercontroller::class,'delete']);
+Route::get('/editt/{id}',[usercontroller::class,'editt']);
+/* Route::put('update-image/{id}',[usercontroller::class,'update']); */
+Route::post('update-image/{id}',[usercontroller::class,'update']);
+
+
+Route::get('/home',[usercontroller::class,'home'])->name('dashboard')->middleware('ulogout');
+route::get('/logout',[usercontroller::class,'logout']);
+
+
+
